@@ -100,6 +100,12 @@ def cartpole_get_grad_logp_action(theta, ob, action):
     """
     grad = np.zeros_like(theta)
     "*** YOUR CODE HERE ***"
+    ob_1 = include_bias(ob)
+    ea = np.zeros(theta.shape[0])
+    ea[action] = 1
+    logits = compute_logits(theta, ob)
+    pi_theta = np.exp(logits) / np.sum(np.exp(logits))
+    grad = np.outer((ea - pi_theta), ob_1)
     return grad
 
 
@@ -295,6 +301,10 @@ def main(env_id, batch_size, discount, learning_rate, n_itrs, render, use_baseli
                 d = len(theta.flatten())
                 F = np.zeros((d, d))
                 "*** YOUR CODE HERE ***"
+                for ob, action in zip(all_observations, all_actions):
+                    grad_logp = get_grad_logp_action(theta, ob, action).reshape(-1, 1)
+                    F += grad_logp.dot(grad_logp.T)
+                F /= len(all_observations)
                 return F
 
             def compute_natural_gradient(F, grad, reg=1e-4):
@@ -306,6 +316,12 @@ def main(env_id, batch_size, discount, learning_rate, n_itrs, render, use_baseli
                 """
                 natural_grad = np.zeros_like(grad)
                 "*** YOUR CODE HERE ***"
+                F += reg * np.eye(F.shape[0])
+                grad_shape = grad.shape
+                # flatten grad to be multiplied with F inverse
+                natural_grad = np.linalg.inv(F).dot(grad.flatten())
+                # remember to reshape natural grad to be the same shape with grad
+                natural_grad = natural_grad.reshape(grad.shape)
                 return natural_grad
 
             def compute_step_size(F, natural_grad, natural_step_size):
@@ -317,6 +333,8 @@ def main(env_id, batch_size, discount, learning_rate, n_itrs, render, use_baseli
                 """
                 step_size = 0.
                 "*** YOUR CODE HERE ***"
+                natural_grad = natural_grad.reshape(1, -1)
+                step_size = np.sqrt(2 * natural_step_size / natural_grad.dot(F).dot(natural_grad.T))
                 return step_size
 
             test_once(compute_fisher_matrix)
